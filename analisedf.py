@@ -2,14 +2,23 @@ import pandas as pd
 
 df = pd.read_csv(
     "avaliacoes_sigepe_preprocessado.csv",
-    encoding="utf-8",   
-    sep=","             
+    encoding="utf-8",
+    sep=","
 )
 
-comment_col = "Comentário"
+# Descobre as colunas de id e comentário
+id_col = "ID" if "ID" in df.columns else "id"
+comment_col = (
+    "comments" if "comments" in df.columns
+    else ("Comentário" if "Comentário" in df.columns else "Comentários")
+)
+
+# Remove linhas sem comentário (opcional)
+df = df.dropna(subset=[comment_col])
 
 k = min(20, len(df))
-indices_aleatorios = df.sample(n=k, random_state=None).index
+amostra = df.sample(n=k, random_state=None)[[id_col, comment_col]]
 
-# mostra o índice e o comentário correspondente
-print(df.loc[indices_aleatorios, [comment_col]].to_string())
+# Imprime no formato desejado
+for _, row in amostra.iterrows():
+    print(f"ID: {row[id_col]} | Comentário: {row[comment_col]}")

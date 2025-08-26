@@ -1,4 +1,4 @@
-id,Sistema,Assunto,Mnemônico,Funcionalidade,Versão,Vínculo,Órgão,UPAG,UORG,Data,Nota,comments
+ID,Sistema,Assunto,Mnemônico,Funcionalidade,Versão,Vínculo,Órgão,UPAG,UORG,Data,Nota,comments
 1,SIGEPE,Central de Mensagens,LEITOR,Leitor de mensagens,0,SER,57202,11275.0,13247.0,2025-08-13 14:25:14.08,4,
 2,SIGEPE,Frequência,PAINEDEGESTO,Painel de Gestão,0,,40116,26.0,,2025-08-13 10:43:44.376,4,
 3,SIGEPE,Central de Mensagens,LEITOR,Leitor de mensagens,0,SER,36205,,,2025-08-12 15:10:07.427,4,
@@ -1717,8 +1717,7 @@ Não estou conseguindo colocar a data do início e fim do comprovante de quitaç
 1533,SIGEPE,Requerimento,SERVIPACOTPROCE,Detalhar Requerimento,64,,30202,1714.0,1652.0,2024-02-02 14:07:01.89,5,
 1534,SIGEPE,Requerimento,SERVIPACOTPROCE,Dar Ciência,63,SER,40116,,,2024-02-02 11:07:29.737,5,
 1535,SIGEPE,Requerimento,SERVIPACOTVISAO,Solicitar,0,SER,17600,,,2024-02-02 10:52:45.484,2,O sistema é muito confuso.
-1536,SIGEPE,Frequência,RELDEOCUDEFUN,Relatório de Ocupantes de Função,0,,17500,,,2024-02-02 10:51:27.01,4,"O botão para extrair não está mais disponível.
-Seria bom se fosse possível selecionar todas as ocorrências ou de um intervalo pre definido: de 5 em 5, de 10 em 10, de 20 em 20 de 30 em 30, por exemplo."
+1536,SIGEPE,Frequência,RELDEOCUDEFUN,Relatório de Ocupantes de Função,0,,17500,,,2024-02-02 10:51:27.01,4,
 1537,SIGEPE,Publicação,PAGESMANUACONSU,Manuais,0,SER,40116,,,2024-02-02 10:44:55.517,1,Não tem um canal de atendimento ao servidor p tirar dúvidas 
 1538,SIGEPE,Assentamento Funcional Digital,PAGESRELATGEREN,Relatório Gerencial,0,SER,26242,,,2024-02-02 10:18:13.092,4,
 1539,SIGEPE,Central de Mensagens,LEITOR,Leitor de mensagens,0,SER,17500,2716.0,3281.0,2024-02-02 09:47:20.111,5,

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from peft import LoraConfig
-from sentiment_analysis.src.llms.token_id import get_token
+from src.llms.token_id import get_token
 from datasets import Dataset, DatasetDict
 from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, BitsAndBytesConfig, Trainer, set_seed

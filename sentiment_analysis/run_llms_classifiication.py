@@ -1,8 +1,8 @@
 import json
 import time
 
-from sentiment_analysis.src.llms.llm_for_few_shot import LLM
-from sentiment_analysis.src.utils.geral import read_dataset, save_file, get_examples, transform_json
+from src.llms.llm_for_few_shot import LLM
+from src.utils.geral import read_dataset, save_file, get_examples, transform_json
 
 def run_classification(number_of_examples):
 
@@ -41,3 +41,5 @@ def run_classification(number_of_examples):
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+run_classification(number_of_examples=2)

@@ -1,14 +1,14 @@
 {
     "system_prompt": "Classify the following texts, which are comments in Portuguese about a government-developed application, into one of the following categories: criticism, suggestion, positive feedback, or not pertinent. Classify as 'not pertinent' only texts that are neither suggestions, positive feedback, nor criticisms, considering that they don't fit those categories but aren't necessarily irrelevant. These comments were provided by users who were encouraged to give suggestions, critiques, or positive feedback. The response must consist solely of the name of one of these categories, with no additional text or information.",
     "examples": {
-        "2161": "suggestion",
-        "2148": "suggestion",
-        "2509": "positive feedback",
-        "468": "positive feedback",
-        "699": "not pertinent",
-        "2005": "not pertinent",
-        "633": "criticism",
-        "2123": "criticism"
+        "2253": "suggestion",
+        "1140": "suggestion",
+        "876": "positive feedback",
+        "2404": "positive feedback",
+        "700": "not pertinent",
+        "1925": "not pertinent",
+        "130": "criticism",
+        "1504": "criticism"
     },
     "categories": [
         "criticism",

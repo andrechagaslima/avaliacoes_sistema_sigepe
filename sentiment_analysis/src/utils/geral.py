@@ -76,22 +76,35 @@ def print_in_file(msg, filename):
 
 def get_examples(df, prompt_dir, number_of_examples):
     with open(prompt_dir, 'r') as f:
-            data = json.load(f)
-    examples = data["examples"]
+        data = json.load(f)
+    examples = data["examples"]  
 
-    labels_text_lengths  = {}
-    for index, label in examples.items():
-        text = df[df['ID'] == int(index)]['comments'].values[0]
-        if label not in labels_text_lengths : 
-            labels_text_lengths[label] = {index: len(text)}
-        else:
-            labels_text_lengths[label][index] = len(text) 
-    
+    id_col = "ID" if "ID" in df.columns else "id"
+
+    df = df[[id_col, "comments"]].copy()
+    df[id_col] = pd.to_numeric(df[id_col], errors="coerce")
+    df = df.dropna(subset=[id_col])
+    df[id_col] = df[id_col].astype(int)
+
+    id_to_comment = df.set_index(id_col)["comments"].to_dict()
+
+    labels_text_lengths = {}
+    missing = []
+    for idx_str, label in examples.items():
+        idx = int(idx_str)
+        text = id_to_comment.get(idx)
+        if text is None:
+            missing.append(idx)
+            continue
+        labels_text_lengths.setdefault(label, {})[idx] = len(text)
+
+    if missing:
+        print(f"Atenção: {len(missing)} ID(s) do JSON não encontrados no dataset: {sorted(missing)[:10]}{'...' if len(missing)>10 else ''}")
+
     texts_for_few_shot = {}
-    for label in labels_text_lengths :
-        labels_text_lengths [label] = dict(sorted(labels_text_lengths [label].items(), key=lambda item: item[1], reverse=True))
-        for index in dict(list(labels_text_lengths[label].items())[:number_of_examples]):
-            text = df[df['ID'] == int(index)]['comments'].values[0]
-            texts_for_few_shot[int(index)] = {'text': text, 'label': label}
-    
-    return texts_for_few_shot 
+    for label, lens in labels_text_lengths.items():
+        top_ids = [i for i, _ in sorted(lens.items(), key=lambda x: x[1], reverse=True)[:number_of_examples]]
+        for i in top_ids:
+            texts_for_few_shot[i] = {"text": id_to_comment[i], "label": label}
+
+    return texts_for_few_shot
