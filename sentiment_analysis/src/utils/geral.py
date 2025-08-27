@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.datasets import load_svmlight_file, dump_svmlight_file
+import unicodedata, re
 
 def transform_json():
 
@@ -59,10 +60,19 @@ def check_if_split_exists(args):
 
 def read_dataset():
     df = pd.read_csv("./data/dataFrame.csv")
-    df = df[['ID', 'comments']]
-    df.dropna(subset=['comments'], inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    df = df[['ID', 'comments']].copy()
 
+    def _norm(x):
+        if pd.isna(x):
+            return ""
+        x = unicodedata.normalize("NFKC", str(x))
+        x = x.replace("\xa0", " ")                    # NBSP -> espaço normal
+        x = re.sub(r"[\u200B-\u200D\uFEFF]", "", x)   # zero-width & BOM
+        return x.strip()
+
+    mask = df['comments'].map(_norm).ne("")
+    df = df[mask].copy()
+    df.reset_index(drop=True, inplace=True)
     return df
 
 def save_file(save_dir, info):
