@@ -343,7 +343,7 @@ else:
     elif base == "Assunto":
         if "Assunto" not in df_base.columns:
             st.warning("Coluna 'Assunto' não encontrada no CSV."); st.stop()
-        st.subheader("Distribuição (%) — Filtro por Assunto (único)")
+        st.subheader("Distribuição (%) — Filtro por Assunto")
         opts = sorted(df_base["Assunto"].dropna().astype(str).unique().tolist())
         escolha = st.selectbox("Assunto:", ["Todos"] + opts, index=0)
         if escolha != "Todos":
@@ -377,7 +377,7 @@ else:
     elif base == "Funcionalidade":
         if "Funcionalidade" not in df_base.columns:
             st.warning("Coluna 'Funcionalidade' não encontrada no CSV."); st.stop()
-        st.subheader("Distribuição (%) — Filtro por Funcionalidade (único)")
+        st.subheader("Distribuição (%) — Filtro por Funcionalidade")
         opts = sorted(df_base["Funcionalidade"].dropna().astype(str).unique().tolist())
         escolha = st.selectbox("Funcionalidade:", ["Todos"] + opts, index=0)
         if escolha != "Todos":
@@ -410,7 +410,7 @@ else:
     else:  # base == "Nota"
         if "Nota" not in df_base.columns:
             st.warning("Coluna 'Nota' não encontrada no CSV."); st.stop()
-        st.subheader("Distribuição (%) — Filtro por Nota (única)")
+        st.subheader("Distribuição (%) — Filtro por Nota")
         df_base["__nota_num__"] = pd.to_numeric(df_base["Nota"], errors="coerce")
         notas = sorted([int(n) for n in df_base["__nota_num__"].dropna().unique() if 1 <= n <= 5])
         escolha = st.selectbox("Nota:", ["Todas"] + [str(n) for n in notas], index=0)
