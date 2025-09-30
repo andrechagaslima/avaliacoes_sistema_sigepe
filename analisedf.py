@@ -1,7 +1,7 @@
 import pandas as pd
 
 df = pd.read_csv(
-    "avaliacoes_sigepe_preprocessado.csv",
+    "avaliacoes_sougov_preprocessado.csv",
     encoding="utf-8",
     sep=","
 )

@@ -59,7 +59,7 @@ def check_if_split_exists(args):
         exit()
 
 def read_dataset():
-    df = pd.read_csv("./data/dataFrame.csv")
+    df = pd.read_csv("./data/souGov_dataFrame.csv")
     df = df[['ID', 'comments']].copy()
 
     def _norm(x):
