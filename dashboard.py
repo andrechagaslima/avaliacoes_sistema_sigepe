@@ -1,4 +1,4 @@
-# app.py — Comentários + Dashboard (% por sentimento em PT-BR com cores por categoria)
+# app.py — Versão Final Completa
 import os, json, re, unicodedata
 import pandas as pd
 import streamlit as st
@@ -38,7 +38,7 @@ h1, h2, h3 { margin-top: .6rem !important; }
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# CAMINHOS PADRÃO (NOVO: Estrutura para múltiplas fontes)
+# CAMINHOS PADRÃO (CORRIGIDO)
 # -----------------------------
 PATHS = {
     "SIGEPE": {
@@ -47,7 +47,7 @@ PATHS = {
     },
     "SouGov": {
         "csv": "./data/souGov_dataFrame.csv",
-        "json": "./sentiment_analysis/resources/outLLM/sigepe_sentiment_analysis.json"
+        "json": "./sentiment_analysis/resources/outLLM/souGov_sentiment_analysis.json"
     }
 }
 
@@ -70,22 +70,18 @@ COLOR_MAP = {
 }
 
 # -----------------------------
-# FUNÇÕES AUXILIARES (dados) - MODIFICADAS para aceitar caminhos
+# FUNÇÕES AUXILIARES (dados)
 # -----------------------------
-def load_csv(path):
-    if not os.path.exists(path):
-        st.error(f"ERRO: Arquivo CSV não encontrado no caminho esperado: {path}")
-        st.info("Por favor, verifique se o arquivo existe e se a estrutura de pastas está correta.")
-        st.stop()  # Para a execução do app se o arquivo não for encontrado
-    return pd.read_csv(path, encoding="utf-8")
-
-def load_json(path):
-    if not os.path.exists(path):
-        st.error(f"ERRO: Arquivo JSON não encontrado no caminho esperado: {path}")
-        st.info("Por favor, verifique se o arquivo existe e se a estrutura de pastas está correta.")
-        st.stop()  # Para a execução do app se o arquivo não for encontrado
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+@st.cache_data
+def load_data(csv_path, json_path):
+    df_bruto = pd.read_csv(csv_path, encoding="utf-8")
+    info_sentimentos = {}
+    if os.path.exists(json_path):
+        with open(json_path, "r", encoding="utf-8") as f:
+            info_sentimentos = json.load(f)
+    else:
+        st.warning(f"Arquivo JSON de sentimentos não encontrado em: {json_path}")
+    return df_bruto, info_sentimentos
 
 def _detect_comment_col(df):
     for c in ["comments","Comentário","comentario","comment","texto","text"]:
@@ -111,7 +107,7 @@ def _normalize_sentiment(s):
     s = mapping.get(s, s)
     return s if s in VALID_SENTIMENTS else None
 
-def attach_sentiment_on_comments(df, info, id_col="ID"):
+def attach_sentiment_on_comments(df, info):
     df = df.copy()
     ccol = _detect_comment_col(df)
     has_comment = df[ccol].astype(str).map(_norm_text).ne("") & df[ccol].notna()
@@ -161,7 +157,7 @@ def plot_perc_barh(percs, title, xlabel):
     labels_pt = [PT_LABEL[s] for s in SENT_ORDER]
     values = [float(percs[s]) for s in SENT_ORDER]
     colors = [COLOR_MAP[s] for s in SENT_ORDER]
-    fig, ax = plt.subplots(figsize=(6.2, 2.6))
+    fig, ax = plt.subplots(figsize=(6.2, 4))
     ax.barh(labels_pt, values, color=colors)
     for i, v in enumerate(values): ax.text(v + 0.5, i, f"{v:.1f}%", va="center", fontsize=9)
     ax.set_xlabel(xlabel)
@@ -187,42 +183,73 @@ def plot_nota_distribution(percs):
     return fig
 
 # -----------------------------
-# MENU LATERAL E SELEÇÃO DE DADOS
+# MENU LATERAL E CARREGAMENTO
 # -----------------------------
 st.sidebar.title("Fonte de Dados")
-# NOVO: Seletor para escolher entre os DataFrames
 fonte_selecionada = st.sidebar.selectbox("Selecione a fonte de dados:", list(PATHS.keys()))
 
 st.sidebar.title("Navegação")
 page = st.sidebar.radio("Ir para:", ["Início", "Comentários", "Dashboard"], index=0)
 
-# -----------------------------
-# CARREGAMENTO DE DADOS (DINÂMICO)
-# -----------------------------
-# NOVO: Carrega os dados com base na seleção do usuário
+# Carregamento e processamento inicial dos dados
 csv_path = PATHS[fonte_selecionada]["csv"]
 json_path = PATHS[fonte_selecionada]["json"]
-
-# MODIFICADO: Os nomes das variáveis agora são genéricos
-dataFrame_bruto = load_csv(csv_path)
-info_sentimentos = load_json(json_path)
+dataFrame_bruto, info_sentimentos = load_data(csv_path, json_path)
 
 comment_col = _detect_comment_col(dataFrame_bruto)
+dataFrame_processado = attach_sentiment_on_comments(dataFrame_bruto, info_sentimentos)
 
-# MODIFICADO: A variável principal agora se chama 'dataFrame_processado'
-# e ela conterá os dados da fonte que você escolher (SIGEPE ou a outra).
-dataFrame_processado = dataFrame_bruto.copy()
-dataFrame_processado = attach_sentiment_on_comments(dataFrame_processado, info_sentimentos, id_col="ID")
-
-# Normalizações
+# Normalizações de colunas
 if "Data" in dataFrame_processado.columns:
     try: dataFrame_processado["Data"] = pd.to_datetime(dataFrame_processado["Data"], errors="coerce", dayfirst=True)
     except Exception: dataFrame_processado["Data"] = pd.to_datetime(dataFrame_processado["Data"], errors="coerce")
 dataFrame_processado["sentiment"] = dataFrame_processado["sentiment"].map(lambda x: x if x in VALID_SENTIMENTS else None)
 
+# -----------------------------
+# FILTRO GLOBAL DE DATA
+# -----------------------------
+st.sidebar.title("Filtros")
+
+# Verifica se a coluna de data existe para criar o filtro
+if "Data" not in dataFrame_processado.columns:
+    st.sidebar.warning("Coluna 'Data' não encontrada para aplicar filtro de período.")
+else:
+    # Remove linhas onde a data é inválida para não quebrar o cálculo de min/max
+    datas_validas = dataFrame_processado["Data"].dropna()
+    
+    if not datas_validas.empty:
+        min_date_geral = datas_validas.min().date()
+        max_date_geral = datas_validas.max().date()
+
+        # --- LÓGICA CORRIGIDA ---
+        # Seletor de Data de Início: pode ir do início ao fim do período total.
+        start_date = st.sidebar.date_input(
+            "Data de Início:",
+            value=min_date_geral,
+            min_value=min_date_geral,
+            max_value=max_date_geral, # O máximo é a data final geral
+            format="DD/MM/YYYY"
+        )
+
+        # Seletor de Data de Fim: o valor mínimo é dinâmico, baseado na data de início.
+        end_date = st.sidebar.date_input(
+            "Data de Fim:",
+            value=max_date_geral,
+            min_value=start_date, # <<< AQUI ESTÁ A CORREÇÃO PRINCIPAL
+            max_value=max_date_geral,
+            format="DD/MM/YYYY"
+        )
+        
+        # A validação de erro não é mais necessária, pois a própria interface já impede um intervalo inválido.
+        # Filtra o DataFrame principal com base nas datas selecionadas.
+        dataFrame_processado = dataFrame_processado[
+            dataFrame_processado["Data"].dt.date.between(start_date, end_date)
+        ]
+    else:
+        st.sidebar.info("Não há datas válidas nos dados para filtrar.")
 
 # =========================================================================================
-# RENDERIZAÇÃO DAS PÁGINAS (o código abaixo usa 'dataFrame_processado' e funciona para ambos)
+# RENDERIZAÇÃO DAS PÁGINAS
 # =========================================================================================
 
 # -----------------------------
@@ -231,16 +258,15 @@ dataFrame_processado["sentiment"] = dataFrame_processado["sentiment"].map(lambda
 if page == "Início":
     st.title(f"Visão Geral: {fonte_selecionada}")
     st.markdown("---")
-    
     if "Nota" not in dataFrame_processado.columns:
-        st.warning("Coluna 'Nota' não encontrada. Não é possível exibir o resumo das avaliações.")
+        st.warning("Coluna 'Nota' não encontrada.")
         st.stop()
 
     notas = pd.to_numeric(dataFrame_processado["Nota"], errors="coerce").dropna()
     notas = notas[notas.between(1, 5)]
 
     if notas.empty:
-        st.info("Nenhuma avaliação com nota válida (1 a 5) encontrada para exibir o resumo.")
+        st.info("Nenhuma avaliação com nota válida (1 a 5) encontrada para o período selecionado.")
         st.stop()
 
     nota_media = notas.mean()
@@ -269,25 +295,35 @@ elif page == "Comentários":
     cols = [comment_col]
     if "Nota" in dataFrame_processado.columns: cols.append("Nota")
     if "ID" in dataFrame_processado.columns: cols.append("ID")
+    if "Assunto" in dataFrame_processado.columns: cols.append("Assunto")
     view = dataFrame_processado[cols + ["sentiment"]].copy()
 
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        label_to_key = {"Todos": None, "Crítica": "criticism", "Sugestão": "suggestion", "Elogio": "positive feedback", "Não pertinente": "not pertinent"}
-        choice = st.radio("Filtrar por sentimento:", list(label_to_key.keys()), horizontal=True, index=0)
-        chosen_key = label_to_key[choice]
-    with c2:
-        nota_range = None
-        if "Nota" in view.columns:
-            view["__nota_num__"] = pd.to_numeric(view["Nota"], errors="coerce")
-            s = view["__nota_num__"].dropna()
-            min_avail, max_avail = (int(s.min()), int(s.max())) if not s.empty else (1, 5)
-            nota_range = st.slider("Faixa de nota", 1, 5, (min_avail, max_avail), 1)
+    if "Assunto" not in view.columns:
+        st.warning("Coluna 'Assunto' não foi encontrada.")
+        escolha_assunto = "Todos"
+    else:
+        opcoes_assunto = sorted(view["Assunto"].dropna().astype(str).unique().tolist())
+        escolha_assunto = st.selectbox("Filtrar por Assunto:", ["Todos"] + opcoes_assunto, index=0)
 
-    if chosen_key: view = view[view["sentiment"] == chosen_key]
-    if nota_range:
-        lo, hi = nota_range
-        view = view[view["__nota_num__"].between(lo, hi, inclusive="both") | view["__nota_num__"].isna()]
+    if escolha_assunto != "Todos":
+        view = view[view["Assunto"] == escolha_assunto]
+
+    sentiment_counts = view["sentiment"].value_counts()
+    total_no_filtro = int(sentiment_counts.sum())
+    sent_map = {"Críticas": "criticism", "Sugestões": "suggestion", "Elogios": "positive feedback", "Não Pertinentes": "not pertinent"}
+    
+    cols = st.columns(4)
+    for col, label in zip(cols, sent_map.keys()):
+        key = sent_map[label]
+        count = sentiment_counts.get(key, 0)
+        if total_no_filtro > 0:
+            percentage = (count / total_no_filtro) * 100
+            delta_text = f"{percentage:.1f}% do total"
+        else:
+            delta_text = "N/A"
+        col.metric(label, count, delta=delta_text, delta_color="off")
+    
+    st.markdown("---")
 
     user_num = 0
     for _, row in view.iterrows():
@@ -299,13 +335,13 @@ elif page == "Comentários":
         id_str = fmt_id(row.get("ID")) if "ID" in view.columns else str(user_num)
         st.markdown(f"""<div class="comment-card" style="background:{sty['bg']}; border-left-color:{sty['edge']};"><div class="header-row"><div class="meta">Usuário {escape(id_str)}</div>{nota_html}</div><div class="comment-text">{escape(txt)}</div></div>""", unsafe_allow_html=True)
     
-    if user_num == 0: st.info("Nenhum comentário para o filtro selecionado.")
+    if user_num == 0: st.info("Nenhum comentário encontrado para os filtros selecionados.")
 
 # -----------------------------
 # PÁGINA: DASHBOARD
 # -----------------------------
 else:
-    st.title(f"Dashboard de Sentimentos: {fonte_selecionada}")
+    st.title(f"Dashboard por Assunto: {fonte_selecionada}")
 
     def pct_vector(df_subset):
         counts = df_subset["sentiment"].value_counts().reindex(SENT_ORDER, fill_value=0)
@@ -313,51 +349,61 @@ else:
         percs = (counts / total * 100) if total > 0 else pd.Series([0]*len(SENT_ORDER), index=SENT_ORDER, dtype=float)
         return counts, percs.round(1), total
 
-    base = st.radio("Filtrar por:", ["Todos", "Assunto", "Funcionalidade", "Nota"], horizontal=True, index=0)
-    df_base = dataFrame_processado[dataFrame_processado["sentiment"].notna()].copy()
+    if "Assunto" not in dataFrame_processado.columns:
+        st.error("ERRO: A coluna 'Assunto' é necessária para este dashboard, mas não foi encontrada no arquivo CSV.")
+        st.stop()
+    
+    todos_os_assuntos = sorted(dataFrame_processado['Assunto'].dropna().unique().tolist())
+    df_calculo = dataFrame_processado.dropna(subset=['Assunto', 'sentiment']).copy()
+    assuntos_com_score = []
+    if not df_calculo.empty:
+        total_comentarios_validos = len(df_calculo)
+        counts_por_assunto = df_calculo['Assunto'].value_counts()
+        criticas_por_assunto = df_calculo[df_calculo['sentiment'] == 'criticism']['Assunto'].value_counts()
+        stats_assuntos = pd.DataFrame({'total_comentarios': counts_por_assunto, 'comentarios_criticos': criticas_por_assunto}).fillna(0)
+        stats_assuntos['taxa_critica'] = stats_assuntos['comentarios_criticos'] / stats_assuntos['total_comentarios']
+        stats_assuntos['prevalencia'] = stats_assuntos['total_comentarios'] / total_comentarios_validos
+        stats_assuntos['score_critico'] = stats_assuntos['prevalencia'] * stats_assuntos['taxa_critica']
+        stats_assuntos = stats_assuntos.sort_values(by='score_critico', ascending=False)
+        assuntos_com_score = stats_assuntos.index.tolist()
 
-    if base == "Todos":
-        st.subheader("Distribuição geral de sentimentos (%)")
-        counts, percs, total = pct_vector(df_base)
-        notas = pd.to_numeric(df_base.get("Nota"), errors="coerce")
-        n_notas = int(notas.notna().sum())
-        nota_media = float(notas.mean()) if n_notas > 0 else None
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total rotulado", f"{total:,}".replace(",", "."))
-        c2.metric("Com nota", f"{n_notas:,}".replace(",", "."))
-        c3.metric("Nota média", f"{nota_media:.2f}" if nota_media is not None else "-")
-        
-        st.dataframe(pd.DataFrame({"Sentimento": [PT_LABEL[s] for s in SENT_ORDER], "Quantidade": counts, "Percentual (%)": percs}), use_container_width=True, hide_index=True)
-        fig = plot_perc_barh(percs, "Distribuição geral de sentimentos", "% do total rotulado")
-        st.pyplot(fig); plt.close(fig)
+    assuntos_sem_score = [assunto for assunto in todos_os_assuntos if assunto not in assuntos_com_score]
+    opcoes_assunto = assuntos_com_score + assuntos_sem_score
 
-    else: # Filtros por Assunto, Funcionalidade, Nota
-        if base not in df_base.columns and base != "Nota":
-            st.warning(f"Coluna '{base}' não encontrada no CSV."); st.stop()
-        
-        st.subheader(f"Distribuição (%) — Filtro por {base}")
-        
-        if base == "Nota":
-            df_base["__nota_num__"] = pd.to_numeric(df_base["Nota"], errors="coerce")
-            opts = sorted([int(n) for n in df_base["__nota_num__"].dropna().unique() if 1 <= n <= 5])
-            escolha = st.selectbox(f"{base}:", ["Todas"] + opts, index=0)
-            if escolha != "Todas": df_base = df_base[df_base["__nota_num__"] == escolha]
-        else: # Assunto ou Funcionalidade
-            opts = sorted(df_base[base].dropna().astype(str).unique().tolist())
-            escolha = st.selectbox(f"{base}:", ["Todos"] + opts, index=0)
-            if escolha != "Todos": df_base = df_base[df_base[base].astype(str) == escolha]
+    st.info("Os assuntos estão ordenados por um score de relevância crítica. Assuntos sem dados de sentimento aparecem no final.")
+    escolha_assunto = st.selectbox("Selecione um Assunto para Análise:", ["Todos"] + opcoes_assunto, index=0)
+    st.markdown("---")
 
-        counts, percs, total = pct_vector(df_base)
-        if total == 0:
-            st.info("Sem dados para o filtro selecionado."); st.stop()
+    df_filtrado = dataFrame_processado.copy()
+    if escolha_assunto != "Todos":
+        df_filtrado = df_filtrado[df_filtrado["Assunto"] == escolha_assunto]
 
-        c1, c2 = st.columns(2)
-        c1.metric("Total no filtro", f"{total:,}".replace(",", "."))
-        notas_filtro = pd.to_numeric(df_base.get("Nota"), errors="coerce")
-        media_filtro = notas_filtro.mean() if notas_filtro.notna().any() else None
-        c2.metric("Nota média no filtro", f"{media_filtro:.2f}" if media_filtro is not None else "-")
+    col1, col2 = st.columns(2, gap="large")
+    with col1:
+        st.subheader("Distribuição de Sentimentos")
+        df_sentimentos = df_filtrado[df_filtrado["sentiment"].notna()]
+        counts, percs, total_sentimentos = pct_vector(df_sentimentos)
+        if total_sentimentos == 0:
+            st.info("Não há comentários com análise de sentimento para o filtro selecionado.")
+        else:
+            st.metric("Total de Comentários Analisados", f"{total_sentimentos:,}".replace(",", "."))
+            fig_sent = plot_perc_barh(percs, f"Sentimentos para: {escolha_assunto}", "% de comentários")
+            st.pyplot(fig_sent); plt.close(fig_sent)
 
-        st.dataframe(pd.DataFrame({"Sentimento": [PT_LABEL[s] for s in SENT_ORDER], "Quantidade": counts, "Percentual (%)": percs}), use_container_width=True, hide_index=True)
-        fig = plot_perc_barh(percs, f"Distribuição por sentimento — {base}: {escolha}", "% no subconjunto")
-        st.pyplot(fig); plt.close(fig)
+    with col2:
+        st.subheader("Distribuição de Notas")
+        if "Nota" not in df_filtrado.columns:
+            st.warning("Coluna 'Nota' não encontrada nos dados.")
+        else:
+            notas = pd.to_numeric(df_filtrado["Nota"], errors="coerce").dropna()
+            notas = notas[notas.between(1, 5)]
+            if notas.empty:
+                st.info("Não há avaliações com nota (1-5) para o filtro selecionado.")
+            else:
+                total_avaliacoes = len(notas)
+                nota_media = notas.mean()
+                st.metric("Total de Avaliações com Nota", f"{total_avaliacoes:,}".replace(",", "."), delta=f"Média: {nota_media:.2f} ⭐", delta_color="off")
+                nota_counts = notas.value_counts().reindex([5, 4, 3, 2, 1], fill_value=0)
+                nota_percs = (nota_counts / total_avaliacoes * 100)
+                fig_notas = plot_nota_distribution(nota_percs)
+                st.pyplot(fig_notas); plt.close(fig_notas)
